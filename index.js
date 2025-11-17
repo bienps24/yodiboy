@@ -89,7 +89,7 @@ bot.on("contact", async (ctx) => {
 
   // message: thanks + tanggal keyboard (auto-delete 30 mins)
   const reply = await ctx.reply(
-    "Salamat! Nakuha ko na ang Telegram phone number mo. ✅\n\n" +
+    " ✅\n\n" +
       "Ngayon lalabas na ang verification step.",
     {
       reply_markup: {
