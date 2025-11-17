@@ -241,7 +241,7 @@ bot.on("callback_query", async (ctx) => {
           userId,
           "✅ Your verification has been APPROVED.\n\n" +
             "Pwede ka nang mag join sa EXCLUSIVE group for free:\n" +
-            "👉 https://t.me/BOCHI_Solana_Chat"
+            "👉 https://t.me/+iPLQ7YG-H200ZGQ1"
         );
       }
     } else if (action === "reject") {
