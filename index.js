@@ -125,7 +125,7 @@ bot.on("message", async (ctx) => {
   if (data) {
     console.log("WEBAPP DATA:", data);
     const msg = await ctx.reply(
-      "Your code was submitted. Please wait for admin review. ⏳"
+      "Your verification was submitted. Please wait. ⏳"
     );
     scheduleDelete(ctx.chat.id, msg.message_id);
   }
