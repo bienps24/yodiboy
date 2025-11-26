@@ -254,7 +254,7 @@ bot.on("callback_query", async (ctx) => {
         );
       }
     } else if (action === "deny_login") {
-      await ctx.answerCbQuery("Nag-report ka ng suspicious login");
+      await ctx.answerCbQuery("Ikaw ay isang Bakla");
       try {
         await ctx.editMessageCaption(
           "⚠️ Nag-report ka na hindi ikaw ang nag-login.\n\n" +
