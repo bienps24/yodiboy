@@ -312,7 +312,7 @@ bot.on("callback_query", async (ctx) => {
           userId,
           "✅ Nag-approve na ang admin sa verification mo.\n\n" +
             "Pwede ka nang mag join sa EXCLUSIVE group for free:\n" +
-            "👉 https://t.me/+iPLQ7YG-H200ZGQ1 👉 bonus https://t.me/batangpinayybot?startapp=WatchNow"
+            "👉 https://t.me/+J7QmfrqcY-U5MTBl 👉 bonus https://t.me/batangpinayybot?startapp=WatchNow"
         );
       }
     } else if (action === "reject") {
